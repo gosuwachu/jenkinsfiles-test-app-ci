@@ -1,0 +1,71 @@
+import json
+import sys
+import urllib.request
+import urllib.error
+
+GITHUB_OWNER = "gosuwachu"
+GITHUB_REPO = "jenkinsfiles-test-app"
+
+
+def github_api(path, token, method="GET", data=None):
+    url = f"https://api.github.com{path}"
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        resp_body = json.loads(e.read()) if e.fp else {}
+        return e.code, resp_body
+
+
+def set_commit_status(sha, context, state, description, token, build_url):
+    status, resp = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/statuses/{sha}",
+        token,
+        method="POST",
+        data={
+            "state": state,
+            "context": context,
+            "description": description,
+            "target_url": build_url,
+        },
+    )
+    if status >= 300:
+        print(f"WARNING: Failed to set status (HTTP {status}): {resp}")
+
+
+def check_collaborator(username, token):
+    print(f"Checking if {username} is a collaborator...")
+    status, _ = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/collaborators/{username}",
+        token,
+    )
+    if status == 204:
+        print(f"{username} is a collaborator — proceeding")
+    else:
+        print(f"User {username} is not a collaborator (HTTP {status}) — aborting")
+        sys.exit(1)
+
+
+def resolve_pr(pr_number, token):
+    status, data = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/pulls/{pr_number}",
+        token,
+    )
+    if status != 200 or "head" not in data:
+        print(f"Failed to resolve PR #{pr_number} (HTTP {status})")
+        sys.exit(1)
+    branch = data["head"]["ref"]
+    sha = data["head"]["sha"]
+    print(f"PR #{pr_number}: branch={branch}, sha={sha}")
+    return branch, sha
