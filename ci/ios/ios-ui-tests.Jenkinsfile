@@ -1,33 +1,15 @@
 // iOS UI Tests — triggered by PR comment "run-ios-ui-tests"
-// Publishes own GitHub commit status
+
+library identifier: 'jenkinsfiles-test-app-ci@main', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/gosuwachu/jenkinsfiles-test-app-ci.git',
+    credentialsId: 'github-pat'
+])
 
 import groovy.transform.Field
 
 @Field GITHUB_OWNER = 'gosuwachu'
 @Field GITHUB_REPO = 'jenkinsfiles-test-app'
-
-def setGitHubStatus(String sha, String context, String state, String description) {
-    withCredentials([usernamePassword(credentialsId: 'github-app',
-            usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
-        sh """curl -s -X POST \
-            -H "Authorization: token \$GH_TOKEN" \
-            -H "Accept: application/vnd.github+json" \
-            "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/statuses/${sha}" \
-            -d '{"state":"${state}","context":"${context}","description":"${description}","target_url":"${env.BUILD_URL}"}'"""
-    }
-}
-
-def withCommitStatus(String context, Closure body) {
-    def sha = env.PR_SHA
-    setGitHubStatus(sha, context, 'pending', 'Running...')
-    try {
-        body()
-        setGitHubStatus(sha, context, 'success', 'Passed')
-    } catch (e) {
-        setGitHubStatus(sha, context, 'failure', "Failed: ${e.message}")
-        throw e
-    }
-}
 
 def checkCollaborator(String username) {
     echo "Checking if ${username} is a collaborator..."
@@ -94,22 +76,13 @@ pipeline {
         }
 
         stage('Checkout') {
-            steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: env.PR_SHA]],
-                    userRemoteConfigs: [[
-                        url: "https://github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git",
-                        credentialsId: 'github-pat'
-                    ]]
-                ])
-            }
+            steps { checkoutApp(env.PR_SHA) }
         }
 
         stage('iOS UI Tests') {
             steps {
                 script {
-                    withCommitStatus('ci/ios-ui-tests') {
+                    githubStatus.wrap(env.PR_SHA, 'ci/ios-ui-tests') {
                         echo "Running iOS UI tests for PR #${env.PR_NUMBER} (branch: ${env.PR_BRANCH})..."
                         echo 'iOS UI tests passed'
                     }
@@ -122,7 +95,7 @@ pipeline {
         failure {
             script {
                 if (env.PR_SHA) {
-                    setGitHubStatus(env.PR_SHA, 'ci/ios-ui-tests', 'error',
+                    githubStatus.set(env.PR_SHA, 'ci/ios-ui-tests', 'error',
                         'Pipeline infrastructure failure')
                 }
             }
