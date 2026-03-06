@@ -1,21 +1,11 @@
-library identifier: 'jenkinsfiles-test-app-ci@main', retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/gosuwachu/jenkinsfiles-test-app-ci.git',
-    credentialsId: 'github-pat'
-])
-
 pipeline {
     agent any
     stages {
-        stage('Checkout App') {
-            steps { checkoutApp(env.COMMIT_SHA) }
-        }
         stage('Android Unit Tests') {
             steps {
-                script {
-                    githubStatus.wrap(env.COMMIT_SHA, 'ci/android-unit-tests') {
-                        echo 'Running Android unit tests...'
-                    }
+                withCredentials([usernamePassword(credentialsId: 'github-app',
+                        usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
+                    sh "./ci-cli android unit-tests --commit-sha ${env.COMMIT_SHA} --gh-token \$GH_TOKEN --build-url ${env.BUILD_URL}"
                 }
             }
         }

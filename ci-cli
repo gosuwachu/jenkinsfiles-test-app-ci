@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""CI CLI — handles app repo checkout, GitHub commit status, and CI step execution."""
+
+import argparse
+import json
+import subprocess
+import sys
+import urllib.request
+import urllib.error
+from pathlib import Path
+
+GITHUB_OWNER = "gosuwachu"
+GITHUB_REPO = "jenkinsfiles-test-app"
+APP_REPO_URL = f"https://github.com/{GITHUB_OWNER}/{GITHUB_REPO}.git"
+APP_DIR = Path("app")
+
+STEPS = {
+    ("ios", "build"): ("iOS Build", "ci/ios-build", "Building iOS..."),
+    ("ios", "unit-tests"): ("iOS Unit Tests", "ci/ios-unit-tests", "Running iOS unit tests..."),
+    ("ios", "linter"): ("iOS Linter", "ci/ios-linter", "Running iOS linter..."),
+    ("ios", "deploy"): ("iOS Deploy", "ci/ios-deploy", "Deploying iOS..."),
+    ("ios", "ui-tests"): ("iOS UI Tests", "ci/ios-ui-tests", "Running iOS UI tests..."),
+    ("android", "build"): ("Android Build", "ci/android-build", "Building Android..."),
+    ("android", "unit-tests"): ("Android Unit Tests", "ci/android-unit-tests", "Running Android unit tests..."),
+    ("android", "linter"): ("Android Linter", "ci/android-linter", "Running Android linter..."),
+    ("android", "deploy"): ("Android Deploy", "ci/android-deploy", "Deploying Android..."),
+}
+
+
+def github_api(path, token, method="GET", data=None):
+    url = f"https://api.github.com{path}"
+    body = json.dumps(data).encode() if data else None
+    req = urllib.request.Request(
+        url,
+        data=body,
+        method=method,
+        headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req) as resp:
+            return resp.status, json.loads(resp.read())
+    except urllib.error.HTTPError as e:
+        body = json.loads(e.read()) if e.fp else {}
+        return e.code, body
+
+
+def set_commit_status(sha, context, state, description, token, build_url):
+    status, resp = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/statuses/{sha}",
+        token,
+        method="POST",
+        data={
+            "state": state,
+            "context": context,
+            "description": description,
+            "target_url": build_url,
+        },
+    )
+    if status >= 300:
+        print(f"WARNING: Failed to set status (HTTP {status}): {resp}")
+
+
+def checkout_app(sha, token):
+    if APP_DIR.exists():
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=APP_DIR,
+        )
+        if result.returncode == 0 and result.stdout.strip() == sha:
+            print(f"App repo already at {sha}")
+            return
+        print(f"Checking out {sha}...")
+        subprocess.run(["git", "fetch", "origin"], check=True, cwd=APP_DIR)
+        subprocess.run(["git", "checkout", "-f", sha], check=True, cwd=APP_DIR)
+    else:
+        clone_url = APP_REPO_URL.replace("https://", f"https://x-access-token:{token}@")
+        print(f"Cloning app repo at {sha}...")
+        subprocess.run(["git", "clone", clone_url, str(APP_DIR)], check=True)
+        subprocess.run(["git", "checkout", "-f", sha], check=True, cwd=APP_DIR)
+
+
+def check_collaborator(username, token):
+    print(f"Checking if {username} is a collaborator...")
+    status, _ = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/collaborators/{username}",
+        token,
+    )
+    if status == 204:
+        print(f"{username} is a collaborator — proceeding")
+    else:
+        print(f"User {username} is not a collaborator (HTTP {status}) — aborting")
+        sys.exit(1)
+
+
+def resolve_pr(pr_number, token):
+    status, data = github_api(
+        f"/repos/{GITHUB_OWNER}/{GITHUB_REPO}/pulls/{pr_number}",
+        token,
+    )
+    if status != 200 or "head" not in data:
+        print(f"Failed to resolve PR #{pr_number} (HTTP {status})")
+        sys.exit(1)
+    branch = data["head"]["ref"]
+    sha = data["head"]["sha"]
+    print(f"PR #{pr_number}: branch={branch}, sha={sha}")
+    return branch, sha
+
+
+def run_step(platform, step, commit_sha, gh_token, build_url):
+    key = (platform, step)
+    stage_name, context, message = STEPS[key]
+
+    checkout_app(commit_sha, gh_token)
+
+    set_commit_status(commit_sha, context, "pending", "Running...", gh_token, build_url)
+    try:
+        print(message)
+        set_commit_status(commit_sha, context, "success", "Passed", gh_token, build_url)
+    except Exception as e:
+        set_commit_status(
+            commit_sha, context, "failure", f"Failed: {e}", gh_token, build_url
+        )
+        raise
+
+
+def run_ui_tests(args):
+    if args.pr_number:
+        if args.comment_author:
+            check_collaborator(args.comment_author, args.gh_token)
+
+        branch, sha = resolve_pr(args.pr_number, args.gh_token)
+        commit_sha = sha
+    else:
+        commit_sha = args.commit_sha
+        if not commit_sha:
+            print("Either --pr-number or --commit-sha is required")
+            sys.exit(1)
+
+    run_step("ios", "ui-tests", commit_sha, args.gh_token, args.build_url)
+
+
+def main():
+    parser = argparse.ArgumentParser(description="CI CLI")
+    subparsers = parser.add_subparsers(dest="platform", required=True)
+
+    for platform in ("ios", "android"):
+        platform_parser = subparsers.add_parser(platform)
+        step_parsers = platform_parser.add_subparsers(dest="step", required=True)
+
+        steps_for_platform = [k[1] for k in STEPS if k[0] == platform]
+        for step in steps_for_platform:
+            step_parser = step_parsers.add_parser(step)
+            step_parser.add_argument("--gh-token", required=True)
+            step_parser.add_argument("--build-url", required=True)
+
+            if platform == "ios" and step == "ui-tests":
+                step_parser.add_argument("--pr-number")
+                step_parser.add_argument("--comment-author")
+                step_parser.add_argument("--commit-sha")
+            else:
+                step_parser.add_argument("--commit-sha", required=True)
+
+    args = parser.parse_args()
+
+    if args.platform == "ios" and args.step == "ui-tests":
+        run_ui_tests(args)
+    else:
+        run_step(args.platform, args.step, args.commit_sha, args.gh_token, args.build_url)
+
+
+if __name__ == "__main__":
+    main()
