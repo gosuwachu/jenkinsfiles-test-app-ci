@@ -12,7 +12,7 @@ def setGitHubStatus(String sha, String context, String state, String description
 }
 
 def withCommitStatus(String context, Closure body) {
-    def sha = env.GIT_COMMIT ?: sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
+    def sha = env.COMMIT_SHA
     setGitHubStatus(sha, context, 'pending', 'Running...')
     try {
         body()
@@ -30,7 +30,7 @@ pipeline {
             steps {
                 checkout([
                     $class: 'GitSCM',
-                    branches: [[name: env.BRANCH_NAME]],
+                    branches: [[name: env.COMMIT_SHA]],
                     userRemoteConfigs: [[
                         url: 'https://github.com/gosuwachu/jenkinsfiles-test-app.git',
                         credentialsId: 'github-pat'
