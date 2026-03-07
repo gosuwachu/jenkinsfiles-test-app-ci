@@ -50,3 +50,21 @@ class TestGetBuildName:
     }, clear=True)
     def test_no_build_number(self):
         assert get_build_name() == "aaa ios-deploy"
+
+    @patch.dict("os.environ", {
+        "GIT_COMMIT": "abc1234567890",
+        "CHANGE_ID": "7",
+        "BUILD_NUMBER": "3",
+    }, clear=True)
+    def test_fallback_to_git_commit_and_change_id(self):
+        assert get_build_name() == "#3 abc1234 PR#7"
+
+    @patch.dict("os.environ", {
+        "COMMIT_SHA": "aaa1111",
+        "GIT_COMMIT": "bbb2222",
+        "PR_NUMBER": "10",
+        "CHANGE_ID": "20",
+        "BUILD_NUMBER": "5",
+    }, clear=True)
+    def test_commit_sha_and_pr_number_take_precedence(self):
+        assert get_build_name() == "#5 aaa1111 PR#10"

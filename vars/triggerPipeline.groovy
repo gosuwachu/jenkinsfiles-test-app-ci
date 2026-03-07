@@ -86,6 +86,9 @@ def call() {
                     script {
                         echo "Starting Mobile CI/CD Pipeline on branch: ${env.BRANCH_TO_BUILD}"
 
+                        def ciCli = sh(script: "ls ${env.WORKSPACE}@libs/*/ci-cli", returnStdout: true).trim()
+                        currentBuild.displayName = sh(script: "${ciCli} build-name", returnStdout: true).trim()
+
                         checkCollaborator()
 
                         def platforms = detectPlatforms()
