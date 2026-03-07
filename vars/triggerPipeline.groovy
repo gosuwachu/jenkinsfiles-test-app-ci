@@ -56,6 +56,18 @@ def publishSkippedStatuses(String platform) {
     }
 }
 
+def triggerJob(String jenkinsfile) {
+    build job: 'pipeline/omnibus',
+          parameters: [
+              string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
+              string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
+              string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
+              string(name: 'JENKINSFILE', value: jenkinsfile),
+              string(name: 'CI_BRANCH', value: params.CI_BRANCH)
+          ],
+          wait: true
+}
+
 def call() {
     pipeline {
         agent any
@@ -96,87 +108,27 @@ def call() {
                 parallel {
                     stage('iOS Build') {
                         when { expression { env.RUN_IOS == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/ios/ios-build.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/ios/ios-build.Jenkinsfile') }
                     }
                     stage('Android Build') {
                         when { expression { env.RUN_ANDROID == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/android/android-build.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/android/android-build.Jenkinsfile') }
                     }
                     stage('iOS Tests') {
                         when { expression { env.RUN_IOS == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/ios/ios-unit-tests.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/ios/ios-unit-tests.Jenkinsfile') }
                     }
                     stage('Android Tests') {
                         when { expression { env.RUN_ANDROID == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/android/android-unit-tests.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/android/android-unit-tests.Jenkinsfile') }
                     }
                     stage('iOS Lint') {
                         when { expression { env.RUN_IOS == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/ios/ios-linter.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/ios/ios-linter.Jenkinsfile') }
                     }
                     stage('Android Lint') {
                         when { expression { env.RUN_ANDROID == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/android/android-linter.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/android/android-linter.Jenkinsfile') }
                     }
                 }
             }
@@ -185,31 +137,11 @@ def call() {
                 parallel {
                     stage('iOS Deploy') {
                         when { expression { env.RUN_IOS == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/ios/ios-deploy.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/ios/ios-deploy.Jenkinsfile') }
                     }
                     stage('Android Deploy') {
                         when { expression { env.RUN_ANDROID == 'true' } }
-                        steps {
-                            build job: 'pipeline/omnibus',
-                                  parameters: [
-                                      string(name: 'BRANCH_NAME', value: env.BRANCH_TO_BUILD),
-                                      string(name: 'COMMIT_SHA', value: env.GIT_COMMIT),
-                                      string(name: 'PR_NUMBER', value: env.CHANGE_ID ?: ''),
-                                      string(name: 'JENKINSFILE', value: 'ci/android/android-deploy.Jenkinsfile'),
-                                      string(name: 'CI_BRANCH', value: params.CI_BRANCH)
-                                  ],
-                                  wait: true
-                        }
+                        steps { triggerJob('ci/android/android-deploy.Jenkinsfile') }
                     }
                 }
             }
