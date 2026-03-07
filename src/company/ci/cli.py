@@ -3,6 +3,7 @@ import argparse
 from company.ci.build_name import get_build_name
 from company.ci.changes import run_detect_changes
 from company.ci.collaborator import run_check_collaborator
+from company.ci.skip_statuses import run_skip_statuses
 from company.ci.steps import STEPS, run_step, run_ui_tests
 
 
@@ -21,6 +22,13 @@ def main():
     collab_parser.add_argument("--pr-number", help="Pull request number")
     collab_parser.add_argument("--author", help="PR author username")
     collab_parser.add_argument("--gh-token", required=True, help="GitHub token")
+
+    # skip-statuses: publishes skipped commit statuses for a platform
+    skip_parser = subparsers.add_parser("skip-statuses")
+    skip_parser.add_argument("--platform", required=True, choices=["ios", "android"])
+    skip_parser.add_argument("--commit-sha", required=True)
+    skip_parser.add_argument("--gh-token", required=True)
+    skip_parser.add_argument("--build-url", required=True)
 
     # detect-changes: detects which platforms have changed files in a PR
     detect_parser = subparsers.add_parser("detect-changes")
@@ -50,6 +58,8 @@ def main():
         print(get_build_name(args.name))
     elif args.command == "check-collaborator":
         run_check_collaborator(args)
+    elif args.command == "skip-statuses":
+        run_skip_statuses(args)
     elif args.command == "detect-changes":
         run_detect_changes(args)
     elif args.command == "ios" and args.step == "ui-tests":

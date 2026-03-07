@@ -3,24 +3,6 @@
 // No publishChecks here; each child job handles its own GitHub status reporting
 // PR diff filtering: only triggers iOS or Android jobs based on changed files
 
-import groovy.transform.Field
-
-@Field GITHUB_OWNER = 'gosuwachu'
-@Field GITHUB_REPO = 'jenkinsfiles-test-app'
-
-@Field IOS_CONTEXTS = [
-    'ci/ios-build',
-    'ci/ios-unit-tests',
-    'ci/ios-linter',
-    'ci/ios-deploy',
-]
-
-@Field ANDROID_CONTEXTS = [
-    'ci/android-build',
-    'ci/android-unit-tests',
-    'ci/android-linter',
-    'ci/android-deploy',
-]
 
 def checkCollaborator() {
     if (!env.CHANGE_ID) {
@@ -65,18 +47,12 @@ def detectPlatforms() {
     }
 }
 
-def publishSkippedStatuses(List<String> contexts, String platform) {
+def publishSkippedStatuses(String platform) {
+    def ciCli = sh(script: "ls ${env.WORKSPACE}@libs/*/ci-cli", returnStdout: true).trim()
     def sha = env.GIT_COMMIT ?: sh(script: 'git rev-parse HEAD', returnStdout: true).trim()
     withCredentials([usernamePassword(credentialsId: 'github-app',
             usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
-        contexts.each { context ->
-            echo "Publishing skipped status for: ${context}"
-            sh """curl -s -X POST \
-                -H "Authorization: token \$GH_TOKEN" \
-                -H "Accept: application/vnd.github+json" \
-                "https://api.github.com/repos/${GITHUB_OWNER}/${GITHUB_REPO}/statuses/${sha}" \
-                -d '{"state":"success","context":"${context}","description":"Skipped — no ${platform} changes","target_url":"${env.BUILD_URL}"}'"""
-        }
+        sh "${ciCli} skip-statuses --platform ${platform} --commit-sha ${sha} --gh-token \$GH_TOKEN --build-url ${env.BUILD_URL}"
     }
 }
 
@@ -107,10 +83,10 @@ def call() {
                         echo "Will run — iOS: ${env.RUN_IOS}, Android: ${env.RUN_ANDROID}"
 
                         if (env.RUN_IOS != 'true') {
-                            publishSkippedStatuses(IOS_CONTEXTS, 'iOS')
+                            publishSkippedStatuses('ios')
                         }
                         if (env.RUN_ANDROID != 'true') {
-                            publishSkippedStatuses(ANDROID_CONTEXTS, 'Android')
+                            publishSkippedStatuses('android')
                         }
                     }
                 }
