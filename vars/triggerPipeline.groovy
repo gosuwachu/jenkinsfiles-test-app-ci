@@ -107,7 +107,7 @@ def call() {
                 }
             }
 
-            stage('Build & Quality') {
+            stage('Checks') {
                 parallel {
                     stage('iOS Build') {
                         when { expression { env.RUN_IOS == 'true' } }
