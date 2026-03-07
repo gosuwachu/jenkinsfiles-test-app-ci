@@ -65,6 +65,19 @@ class TestCliParsing:
             "ios", "alpha-build", "abc", "tok", "http://b", None, False,
         )
 
+    @patch("company.ci.cli.run_step")
+    @patch.dict("os.environ", {"GH_TOKEN": "tok"})
+    def test_production_build(self, mock_run):
+        argv = [
+            "ci-cli", "ios", "production-build",
+            "--commit-sha", "abc", "--build-url", "http://b",
+        ]
+        with patch("sys.argv", argv):
+            main()
+        mock_run.assert_called_once_with(
+            "ios", "production-build", "abc", "tok", "http://b", None, False,
+        )
+
     @patch("company.ci.cli.run_ui_tests")
     @patch.dict("os.environ", {"GH_TOKEN": "tok"})
     def test_ios_ui_tests_with_pr(self, mock_run):

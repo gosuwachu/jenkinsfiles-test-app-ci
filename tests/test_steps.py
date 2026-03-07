@@ -77,11 +77,13 @@ class TestRunStep:
             ("ios", "deploy"),
             ("ios", "ui-tests"),
             ("ios", "alpha-build"),
+            ("ios", "production-build"),
             ("android", "build"),
             ("android", "unit-tests"),
             ("android", "linter"),
             ("android", "deploy"),
             ("android", "alpha-build"),
+            ("android", "production-build"),
         ]
         for key in expected:
             assert key in STEPS, f"Missing step: {key}"

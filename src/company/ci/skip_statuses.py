@@ -7,7 +7,7 @@ from company.ci.steps import STEPS
 def publish_skip_statuses(platform, commit_sha, token, build_url):
     platform_label = "iOS" if platform == "ios" else "Android"
     # Exclude ui-tests (comment-triggered) and alpha-build (separate pipeline)
-    excluded = {"ui-tests", "alpha-build"}
+    excluded = {"ui-tests", "alpha-build", "production-build"}
     contexts = [
         v[1] for k, v in STEPS.items()
         if k[0] == platform and k[1] not in excluded

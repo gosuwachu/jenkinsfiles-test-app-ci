@@ -49,6 +49,16 @@ STEPS = {
         "ci/android-alpha-build",
         "Alpha building Android...",
     ),
+    ("ios", "production-build"): (
+        "iOS Production Build",
+        "ci/ios-production-build",
+        "Production building iOS...",
+    ),
+    ("android", "production-build"): (
+        "Android Production Build",
+        "ci/android-production-build",
+        "Production building Android...",
+    ),
 }
 
 
