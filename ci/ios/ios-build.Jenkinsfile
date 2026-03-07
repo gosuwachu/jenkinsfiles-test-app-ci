@@ -21,7 +21,7 @@ pipeline {
         }
         stage('Trigger iOS Deploy') {
             steps {
-                build job: 'pipeline/omnibus',
+                build job: 'mobile-app/omnibus',
                       parameters: [
                           string(name: 'BRANCH_NAME', value: env.BRANCH_NAME),
                           string(name: 'COMMIT_SHA', value: env.COMMIT_SHA),
