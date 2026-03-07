@@ -83,45 +83,22 @@ def detectPlatforms() {
     }
 
     try {
+        def ciCli = "${env.WORKSPACE}@libs/ci-lib/ci-cli"
+        def output = ''
         withCredentials([usernamePassword(credentialsId: 'github-app',
                 usernameVariable: 'GH_APP', passwordVariable: 'GH_TOKEN')]) {
-            sh "git fetch https://\$GH_APP:\$GH_TOKEN@github.com/${GITHUB_OWNER}/${GITHUB_REPO}.git ${env.CHANGE_TARGET}:refs/remotes/origin/${env.CHANGE_TARGET} --quiet"
+            output = sh(
+                script: "${ciCli} detect-changes --target-branch ${env.CHANGE_TARGET} --gh-token \$GH_TOKEN",
+                returnStdout: true
+            ).trim()
         }
-        def changedFiles = sh(
-            script: "git diff --name-only origin/${env.CHANGE_TARGET}...HEAD",
-            returnStdout: true
-        ).trim()
-
-        if (!changedFiles) {
-            echo 'No changed files detected — running all platforms'
-            return [ios: true, android: true]
-        }
-
-        echo "Changed files in PR:\n${changedFiles}"
-
-        def hasIos = false
-        def hasAndroid = false
-        def hasOther = false
-
-        changedFiles.split('\n').each { file ->
-            if (file.startsWith('ios/')) {
-                hasIos = true
-            } else if (file.startsWith('android/')) {
-                hasAndroid = true
-            } else {
-                hasOther = true
-            }
-        }
-
-        if (hasOther) {
-            echo 'Files outside ios/ and android/ changed — running all platforms'
-            return [ios: true, android: true]
-        }
-
-        echo "Platform detection: iOS=${hasIos}, Android=${hasAndroid}"
-        return [ios: hasIos, android: hasAndroid]
+        // readJSON parses the last line (JSON); preceding lines are diagnostic output
+        def lastLine = output.split('\n').last()
+        def platforms = readJSON text: lastLine
+        echo "Platform detection: iOS=${platforms.ios}, Android=${platforms.android}"
+        return platforms
     } catch (e) {
-        echo "WARNING: Failed to detect changed files: ${e.message}. Running all platforms."
+        echo "WARNING: Failed to detect changes: ${e.message}. Running all platforms."
         return [ios: true, android: true]
     }
 }

@@ -1,6 +1,7 @@
 import argparse
 
 from company.ci.build_name import get_build_name
+from company.ci.changes import run_detect_changes
 from company.ci.steps import STEPS, run_step, run_ui_tests
 
 
@@ -13,6 +14,11 @@ def main():
     build_name_parser.add_argument(
         "--name", help="Override build name (instead of deriving from JENKINSFILE env var)",
     )
+
+    # detect-changes: detects which platforms have changed files in a PR
+    detect_parser = subparsers.add_parser("detect-changes")
+    detect_parser.add_argument("--target-branch", help="PR target branch to diff against")
+    detect_parser.add_argument("--gh-token", required=True, help="GitHub token for fetching")
 
     for platform in ("ios", "android"):
         platform_parser = subparsers.add_parser(platform)
@@ -35,6 +41,8 @@ def main():
 
     if args.command == "build-name":
         print(get_build_name(args.name))
+    elif args.command == "detect-changes":
+        run_detect_changes(args)
     elif args.command == "ios" and args.step == "ui-tests":
         run_ui_tests(args)
     else:
