@@ -12,7 +12,7 @@ class TestGetBuildName:
         "BUILD_NUMBER": "7",
     })
     def test_full_pr_build(self):
-        assert get_build_name() == "#7 ios-build abc1234 PR#42"
+        assert get_build_name() == "#7 abc1234 PR#42 ios-build"
 
     @patch.dict("os.environ", {
         "JENKINSFILE": "ci/android/android-linter.Jenkinsfile",
@@ -21,7 +21,7 @@ class TestGetBuildName:
         "BUILD_NUMBER": "12",
     }, clear=True)
     def test_branch_build_no_pr(self):
-        assert get_build_name() == "#12 android-linter def5678"
+        assert get_build_name() == "#12 def5678 android-linter"
 
     @patch.dict("os.environ", {
         "JENKINSFILE": "ci/ios/ios-build.Jenkinsfile",
@@ -31,22 +31,22 @@ class TestGetBuildName:
         "BUILD_NUMBER": "3",
     })
     def test_non_main_ci_branch(self):
-        assert get_build_name() == "#3 ios-build abc1234 PR#5 [ci:feature/new-steps]"
+        assert get_build_name() == "#3 abc1234 PR#5 ios-build [ci:feature/new-steps]"
 
     @patch.dict("os.environ", {
         "PR_NUMBER": "42",
         "BUILD_NUMBER": "9",
     }, clear=True)
     def test_name_override(self):
-        assert get_build_name("ios-ui-tests") == "#9 ios-ui-tests PR#42"
+        assert get_build_name("ios-ui-tests") == "#9 PR#42 ios-ui-tests"
 
     @patch.dict("os.environ", {"BUILD_NUMBER": "1"}, clear=True)
     def test_minimal(self):
-        assert get_build_name() == "#1 build"
+        assert get_build_name() == "#1"
 
     @patch.dict("os.environ", {
         "JENKINSFILE": "ci/ios/ios-deploy.Jenkinsfile",
         "COMMIT_SHA": "aaa",
     }, clear=True)
     def test_no_build_number(self):
-        assert get_build_name() == "ios-deploy aaa"
+        assert get_build_name() == "aaa ios-deploy"
